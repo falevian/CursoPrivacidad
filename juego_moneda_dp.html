@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El juego de la moneda · Privacidad Diferencial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:    #f4ede1;
+    --paper-2:  #ebe2d2;
+    --ink:      #1a1410;
+    --ink-2:    #4a3f33;
+    --muted:    #8c7d6a;
+    --accent:   #c44536;   /* rojo terracota — sí, copió */
+    --accent-2: #2d5d3e;   /* verde oscuro  — no copió  */
+    --gold:     #c8a64b;
+    --line:     #1a1410;
+    --serif:   'Fraunces', Georgia, serif;
+    --sans:    'Inter', system-ui, sans-serif;
+    --mono:    'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(196,69,54,.04), transparent 40%),
+      radial-gradient(circle at 88% 92%, rgba(45,93,62,.04), transparent 40%);
+  }
+
+  /* paper grain */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(
+        90deg,
+        transparent, transparent 39px,
+        rgba(26,20,16,0.02) 39px, rgba(26,20,16,0.02) 40px
+      );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .container {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 50px 40px 100px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ── header ──────────────────────────────────────────────────────────── */
+  header {
+    border-bottom: 2px solid var(--line);
+    padding-bottom: 28px;
+    margin-bottom: 40px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(34px, 5.5vw, 58px);
+    font-weight: 600;
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    margin-bottom: 18px;
+  }
+  h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+  .lede {
+    font-family: var(--serif);
+    font-size: 17px;
+    font-style: italic;
+    color: var(--ink-2);
+    line-height: 1.5;
+    max-width: 720px;
+  }
+  .lede strong { font-style: normal; color: var(--ink); }
+
+  /* ── two column layout ───────────────────────────────────────────────── */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 48px;
+    margin-bottom: 50px;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; gap: 32px; }
+  }
+
+  /* ── controls panel (left) ───────────────────────────────────────────── */
+  .panel {
+    border: 2px solid var(--line);
+    background: var(--paper-2);
+    padding: 30px 30px 28px;
+    position: relative;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: -2px; left: -2px; right: -2px; bottom: -2px;
+    border: 1px solid var(--line);
+    transform: translate(6px, 6px);
+    z-index: -1;
+    background: var(--paper);
+  }
+
+  .panel-eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .panel-title {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 22px;
+    line-height: 1.1;
+  }
+
+  /* slider */
+  .slider-block {
+    margin-bottom: 28px;
+  }
+  .slider-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .slider-label .label-text {
+    font-family: var(--serif);
+    font-size: 16px;
+    font-weight: 500;
+  }
+  .slider-label .label-value {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--ink-2);
+    outline: none;
+    cursor: pointer;
+    margin: 14px 0 6px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    background: var(--accent);
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 var(--ink);
+    transition: transform .12s;
+  }
+  input[type="range"]::-webkit-slider-thumb:active {
+    transform: scale(1.2);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    background: var(--accent);
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .slider-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* number input for n */
+  .num-block {
+    margin-bottom: 28px;
+  }
+  .num-block-label {
+    font-family: var(--serif);
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .num-control {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .num-control button {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    width: 38px;
+    height: 38px;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    cursor: pointer;
+    transition: all .1s;
+  }
+  .num-control button:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .num-control input {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    padding: 6px 10px;
+    color: var(--ink);
+  }
+
+  /* run button */
+  .run-btn {
+    width: 100%;
+    font-family: var(--serif);
+    font-size: 19px;
+    font-weight: 600;
+    padding: 16px;
+    background: var(--accent);
+    color: var(--paper);
+    border: 2px solid var(--ink);
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--ink);
+    transition: all .12s;
+    letter-spacing: 0.01em;
+  }
+  .run-btn:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+  .run-btn:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 1px 1px 0 var(--ink);
+  }
+  .run-btn:disabled {
+    background: var(--muted);
+    cursor: not-allowed;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+
+  .reset-btn {
+    width: 100%;
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 10px;
+    background: transparent;
+    color: var(--ink-2);
+    border: 1px solid var(--ink-2);
+    cursor: pointer;
+    transition: all .1s;
+  }
+  .reset-btn:hover {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  /* ── visualization (right) ───────────────────────────────────────────── */
+  .viz {
+    position: relative;
+  }
+
+  /* status line */
+  .status {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    height: 14px;
+  }
+  .status .pulse {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .4; transform: scale(.7); }
+  }
+
+  /* simulation arena */
+  .arena {
+    background: var(--paper-2);
+    border: 2px solid var(--line);
+    padding: 24px;
+    min-height: 380px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arena-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .arena-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  /* coin grid */
+  .coin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(22px, 1fr));
+    gap: 4px;
+    margin-bottom: 24px;
+    min-height: 120px;
+  }
+
+  .person {
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: var(--paper);
+    border: 1px solid #d0c4ad;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--muted);
+    transition: all .25s cubic-bezier(.5,0,.3,1);
+    transform: scale(0);
+  }
+  .person.shown {
+    transform: scale(1);
+  }
+  .person.yes {
+    background: var(--accent);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .person.no {
+    background: var(--accent-2);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .person.flipping {
+    animation: flip 0.4s ease;
+  }
+  @keyframes flip {
+    0% { transform: scale(1) rotateY(0deg); }
+    50% { transform: scale(1.3) rotateY(180deg); }
+    100% { transform: scale(1) rotateY(360deg); }
+  }
+
+  /* counters */
+  .counters {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .counter {
+    border: 1px solid var(--line);
+    padding: 12px 14px;
+    background: var(--paper);
+  }
+  .counter-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .counter-value {
+    font-family: var(--serif);
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .counter-value .small { font-size: 16px; color: var(--muted); }
+
+  /* ── results bars ────────────────────────────────────────────────────── */
+  .results {
+    margin-top: 36px;
+  }
+  .results-title {
+    font-family: var(--serif);
+    font-size: 26px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+  .results-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 28px;
+  }
+  @media (max-width: 800px) {
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+
+  .bar-block {
+    border: 2px solid var(--line);
+    background: var(--paper-2);
+    padding: 22px 22px 20px;
+    position: relative;
+  }
+  .bar-block::after {
+    content: '';
+    position: absolute;
+    top: 8px; right: 8px;
+    width: 8px; height: 8px;
+    background: var(--gold);
+    border-radius: 50%;
+  }
+  .bar-block.estimate::after { background: var(--accent); }
+  .bar-block.observed::after { background: var(--ink-2); }
+
+  .bar-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .bar-title {
+    font-family: var(--serif);
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 18px;
+    line-height: 1.2;
+  }
+  .bar-title em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .bar-row-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    width: 36px;
+    color: var(--ink-2);
+  }
+  .bar-track {
+    flex: 1;
+    height: 30px;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    position: relative;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    transition: width .6s cubic-bezier(.5,0,.3,1);
+    position: relative;
+  }
+  .bar-fill.yes { background: var(--accent); }
+  .bar-fill.no  { background: var(--accent-2); }
+  .bar-row-pct {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    width: 56px;
+    text-align: right;
+    color: var(--ink);
+  }
+
+  /* error box */
+  .error-box {
+    margin-top: 24px;
+    border-top: 1px solid var(--line);
+    padding-top: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .error-stat {
+    text-align: center;
+  }
+  .error-stat-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .error-stat-value {
+    font-family: var(--serif);
+    font-size: 26px;
+    font-weight: 600;
+  }
+
+  /* ── theory section ──────────────────────────────────────────────────── */
+  .theory {
+    margin-top: 60px;
+    padding-top: 36px;
+    border-top: 2px solid var(--line);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+  @media (max-width: 800px) {
+    .theory { grid-template-columns: 1fr; gap: 28px; }
+  }
+
+  .theory-block h3 {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    letter-spacing: -0.01em;
+  }
+  .theory-block h3 .num {
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 14px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .theory-block p {
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    margin-bottom: 12px;
+  }
+  .theory-block strong { color: var(--ink); }
+  .theory-block code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--paper-2);
+    padding: 1px 6px;
+    border: 1px solid var(--paper-2);
+    color: var(--accent);
+  }
+  .formula {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--paper-2);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    margin: 14px 0;
+    line-height: 1.7;
+  }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--ink-2);
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .1em;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<header>
+  <div class="eyebrow">Privacidad Diferencial · demostración</div>
+  <h1>El juego de la <em>moneda</em></h1>
+  <p class="lede">
+    Una técnica de <strong>respuesta aleatorizada</strong> (Warner, 1965): cada participante responde con
+    ruido controlado, pero a partir del agregado podemos recuperar la proporción real con sorprendente precisión.
+    Lo demostramos con una pregunta sensible: <em>¿has copiado en algún examen?</em>
+  </p>
+</header>
+
+<!-- ── controls + arena ──────────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- left: controls -->
+  <aside class="panel">
+    <div class="panel-eyebrow">administrador</div>
+    <h2 class="panel-title">Define la verdad oculta</h2>
+
+    <div class="slider-block">
+      <div class="slider-label">
+        <span class="label-text">Proporción real de "sí"</span>
+        <span class="label-value" id="propLabel">30%</span>
+      </div>
+      <input type="range" id="propSlider" min="0" max="100" step="1" value="30">
+      <div class="slider-ticks">
+        <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>
+      </div>
+    </div>
+
+    <div class="num-block">
+      <div class="num-block-label">Número de participantes</div>
+      <div class="num-control">
+        <button id="nMinus">−</button>
+        <input type="number" id="nInput" value="600" min="50" max="5000" step="50">
+        <button id="nPlus">+</button>
+      </div>
+    </div>
+
+    <button id="runBtn" class="run-btn">Lanzar simulación</button>
+    <button id="resetBtn" class="reset-btn">Reiniciar</button>
+
+    <div style="margin-top:24px; padding-top:18px; border-top:1px solid var(--muted); font-family:var(--serif); font-size:14px; line-height:1.55; color:var(--ink-2);">
+      <strong style="color:var(--ink)">Reglas del juego:</strong><br>
+      <span style="font-family:var(--mono); font-size:11px; color:var(--accent);">①</span> tira moneda <br>
+      <span style="font-family:var(--mono); font-size:11px;">→ cara: dice la verdad</span><br>
+      <span style="font-family:var(--mono); font-size:11px;">→ cruz: tira otra vez</span><br>
+      <span style="font-family:var(--mono); font-size:11px; color:var(--accent);">②</span> en la 2ª moneda <br>
+      <span style="font-family:var(--mono); font-size:11px;">→ cara: responde "sí"</span><br>
+      <span style="font-family:var(--mono); font-size:11px;">→ cruz: responde "no"</span>
+    </div>
+  </aside>
+
+  <!-- right: viz -->
+  <div class="viz">
+    <div class="status" id="status">&nbsp;</div>
+
+    <div class="arena">
+      <div class="arena-title" id="arenaTitle">Esperando...</div>
+      <div class="arena-sub" id="arenaSub">configura los parámetros y lanza la simulación</div>
+
+      <div class="coin-grid" id="coinGrid"></div>
+
+      <div class="counters">
+        <div class="counter">
+          <div class="counter-label">Procesados</div>
+          <div class="counter-value" id="counterTotal">0<span class="small">/0</span></div>
+        </div>
+        <div class="counter">
+          <div class="counter-label">Respondieron sí</div>
+          <div class="counter-value" id="counterYes" style="color:var(--accent)">0</div>
+        </div>
+        <div class="counter">
+          <div class="counter-label">Respondieron no</div>
+          <div class="counter-value" id="counterNo" style="color:var(--accent-2)">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── results ──────────────────────────────────────────────────────── -->
+<div class="results">
+  <h2 class="results-title">Verdad oculta vs. respuesta observada vs. estimación</h2>
+  <div class="results-sub">comparación tras la simulación</div>
+
+  <div class="compare-grid">
+    <!-- truth -->
+    <div class="bar-block">
+      <div class="bar-label">①  Realidad</div>
+      <div class="bar-title">La verdad <em>oculta</em></div>
+      <div class="bar-row">
+        <span class="bar-row-label">SÍ</span>
+        <div class="bar-track"><div class="bar-fill yes" id="truthYesFill" style="width:0%"></div></div>
+        <span class="bar-row-pct" id="truthYesPct">—</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-row-label">NO</span>
+        <div class="bar-track"><div class="bar-fill no" id="truthNoFill" style="width:0%"></div></div>
+        <span class="bar-row-pct" id="truthNoPct">—</span>
+      </div>
+    </div>
+
+    <!-- observed -->
+    <div class="bar-block observed">
+      <div class="bar-label">②  Observado (con ruido)</div>
+      <div class="bar-title">Lo que <em>responden</em></div>
+      <div class="bar-row">
+        <span class="bar-row-label">SÍ</span>
+        <div class="bar-track"><div class="bar-fill yes" id="obsYesFill" style="width:0%"></div></div>
+        <span class="bar-row-pct" id="obsYesPct">—</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-row-label">NO</span>
+        <div class="bar-track"><div class="bar-fill no" id="obsNoFill" style="width:0%"></div></div>
+        <span class="bar-row-pct" id="obsNoPct">—</span>
+      </div>
+    </div>
+
+    <!-- estimate -->
+    <div class="bar-block estimate">
+      <div class="bar-label">③  Estimación</div>
+      <div class="bar-title"><em>Recuperamos</em> la verdad</div>
+      <div class="bar-row">
+        <span class="bar-row-label">SÍ</span>
+        <div class="bar-track"><div class="bar-fill yes" id="estYesFill" style="width:0%"></div></div>
+        <span class="bar-row-pct" id="estYesPct">—</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-row-label">NO</span>
+        <div class="bar-track"><div class="bar-fill no" id="estNoFill" style="width:0%"></div></div>
+        <span class="bar-row-pct" id="estNoPct">—</span>
+      </div>
+
+      <div class="error-box">
+        <div class="error-stat">
+          <div class="error-stat-label">Verdad real</div>
+          <div class="error-stat-value" id="trueValue">—</div>
+        </div>
+        <div class="error-stat">
+          <div class="error-stat-label">Error abs.</div>
+          <div class="error-stat-value" id="errValue" style="color:var(--accent)">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── theory ─────────────────────────────────────────────────────────── -->
+<div class="theory">
+  <div class="theory-block">
+    <h3><span class="num">01</span> ¿Por qué funciona?</h3>
+    <p>
+      Con probabilidad <code>1/2</code> el participante dice la verdad, y con probabilidad <code>1/2</code> responde
+      al azar (de los cuales la mitad serán "sí" y la mitad "no"). Por lo tanto:
+    </p>
+    <div class="formula">
+      P(observa "sí") = ½·p + ½·½ = ½·p + ¼
+    </div>
+    <p>
+      Si llamamos <code>q</code> a la fracción observada de respuestas "sí", podemos
+      <strong>despejar</strong> la verdad oculta:
+    </p>
+    <div class="formula">
+      p̂ = 2q − ½
+    </div>
+    <p>
+      Esa es la <strong>estimación</strong> que ves en el tercer panel. Cada participante mantiene
+      la <em>plausible negabilidad</em>: un "sí" puede deberse al azar.
+    </p>
+  </div>
+
+  <div class="theory-block">
+    <h3><span class="num">02</span> ¿Y la privacidad diferencial?</h3>
+    <p>
+      Este protocolo satisface privacidad diferencial local con
+      <code>ε = ln(3) ≈ 1,099</code>. Es uno de los mecanismos DP más antiguos —
+      Stanley Warner lo propuso en <strong>1965</strong>, mucho antes de que el término existiera.
+    </p>
+    <p>
+      Modelos de DP local equivalentes son los que usan
+      <strong>Apple</strong> (telemetría de teclado y emojis),
+      <strong>Google</strong> (RAPPOR en Chrome) y el
+      <strong>Censo de EE.UU.</strong> en pasadas piloto.
+    </p>
+    <p>
+      El precio: cada respuesta individual lleva tanto ruido que es inútil. Solo el
+      <strong>agregado</strong> de muchas respuestas reconstruye la señal.
+      Por eso en DP local hacen falta <em>muchos</em> participantes.
+    </p>
+  </div>
+</div>
+
+<footer>
+  Warner, S.L. (1965) · "Randomized response" · J. Amer. Statist. Assoc.
+</footer>
+
+</div>
+
+<script>
+'use strict';
+
+// ── elementos ──────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const propSlider = $('propSlider'),    propLabel = $('propLabel');
+const nInput     = $('nInput'),        nMinus    = $('nMinus'),    nPlus = $('nPlus');
+const runBtn     = $('runBtn'),        resetBtn  = $('resetBtn');
+const statusEl   = $('status');
+const arenaTitle = $('arenaTitle'),    arenaSub  = $('arenaSub');
+const coinGrid   = $('coinGrid');
+const counterTotal = $('counterTotal'), counterYes = $('counterYes'), counterNo = $('counterNo');
+
+let running = false;
+let currentTimeout = null;
+
+// ── slider listener ────────────────────────────────────────────────────────
+propSlider.addEventListener('input', () => {
+  propLabel.textContent = propSlider.value + '%';
+});
+
+// ── n controls ─────────────────────────────────────────────────────────────
+nMinus.addEventListener('click', () => {
+  const v = Math.max(50, parseInt(nInput.value || 600) - 50);
+  nInput.value = v;
+});
+nPlus.addEventListener('click', () => {
+  const v = Math.min(5000, parseInt(nInput.value || 600) + 50);
+  nInput.value = v;
+});
+nInput.addEventListener('change', () => {
+  let v = parseInt(nInput.value);
+  if (isNaN(v) || v < 50) v = 50;
+  if (v > 5000) v = 5000;
+  nInput.value = v;
+});
+
+// ── reset ──────────────────────────────────────────────────────────────────
+function reset() {
+  if (currentTimeout) { clearTimeout(currentTimeout); currentTimeout = null; }
+  running = false;
+  runBtn.disabled = false;
+  runBtn.textContent = 'Lanzar simulación';
+  statusEl.innerHTML = '&nbsp;';
+  arenaTitle.textContent = 'Esperando...';
+  arenaSub.textContent = 'configura los parámetros y lanza la simulación';
+  coinGrid.innerHTML = '';
+  counterTotal.innerHTML = '0<span class="small">/0</span>';
+  counterYes.textContent = '0';
+  counterNo.textContent = '0';
+
+  ['truthYesFill','truthNoFill','obsYesFill','obsNoFill','estYesFill','estNoFill']
+    .forEach(id => { $(id).style.width = '0%'; });
+  ['truthYesPct','truthNoPct','obsYesPct','obsNoPct','estYesPct','estNoPct']
+    .forEach(id => { $(id).textContent = '—'; });
+  $('trueValue').textContent = '—';
+  $('errValue').textContent = '—';
+}
+resetBtn.addEventListener('click', reset);
+
+// ── simulación ─────────────────────────────────────────────────────────────
+runBtn.addEventListener('click', () => {
+  if (running) return;
+  running = true;
+  runBtn.disabled = true;
+  runBtn.textContent = 'Simulando...';
+
+  const N = parseInt(nInput.value);
+  const p = parseInt(propSlider.value) / 100;
+
+  // Pre-generamos los datos
+  const data = [];
+  for (let i = 0; i < N; i++) {
+    const truth = Math.random() < p;            // verdad real
+    const coin1 = Math.random() < 0.5;          // 1ª moneda: cara=true
+    let answer;
+    if (coin1) {
+      answer = truth;                            // dice la verdad
+    } else {
+      answer = Math.random() < 0.5;              // 2ª moneda
+    }
+    data.push({ truth, coin1, answer });
+  }
+
+  // contadores acumulados
+  let yesCount = 0, noCount = 0;
+
+  // limpiar grid y crear celdas
+  coinGrid.innerHTML = '';
+  const cells = [];
+  for (let i = 0; i < N; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'person';
+    coinGrid.appendChild(cell);
+    cells.push(cell);
+  }
+
+  arenaTitle.textContent = 'Lanzando monedas...';
+  arenaSub.textContent  = `${N} participantes · responden con ruido controlado`;
+  statusEl.innerHTML = '<span class="pulse"></span>SIMULANDO';
+
+  // animación por lotes (ratio variable según N)
+  let i = 0;
+  const batchSize = Math.max(1, Math.floor(N / 200));   // ~200 frames totales
+  const stepDelay = 16;                                  // 60fps approx
+
+  function step() {
+    const end = Math.min(i + batchSize, N);
+    for (; i < end; i++) {
+      const d = data[i];
+      const c = cells[i];
+      c.classList.add('shown');
+      if (d.answer) {
+        c.classList.add('yes');
+        c.textContent = 'Sí';
+        yesCount++;
+      } else {
+        c.classList.add('no');
+        c.textContent = 'No';
+        noCount++;
+      }
+    }
+    counterTotal.innerHTML = `${i}<span class="small">/${N}</span>`;
+    counterYes.textContent = yesCount;
+    counterNo.textContent  = noCount;
+
+    if (i < N) {
+      currentTimeout = setTimeout(step, stepDelay);
+    } else {
+      finish(data, p, N);
+    }
+  }
+  currentTimeout = setTimeout(step, 100);
+});
+
+// ── al acabar: calcular y pintar resultados ────────────────────────────────
+function finish(data, p, N) {
+  running = false;
+  runBtn.disabled = false;
+  runBtn.textContent = 'Lanzar simulación';
+  statusEl.innerHTML = '<span style="color:var(--accent-2)">●</span> SIMULACIÓN COMPLETA';
+  arenaTitle.textContent = '¡Listo!';
+  arenaSub.textContent  = `tras lanzar ${N} monedas, comparamos los tres niveles abajo`;
+
+  // contadores
+  const trueYes = data.filter(d => d.truth).length;
+  const obsYes  = data.filter(d => d.answer).length;
+  const obsNo   = N - obsYes;
+
+  const truthP = trueYes / N;
+  const obsP   = obsYes / N;
+  // estimador insesgado: p̂ = 2q − ½
+  const estP   = Math.max(0, Math.min(1, 2 * obsP - 0.5));
+
+  // pintar barras (con pequeño retardo para que se vea la transición)
+  setTimeout(() => {
+    setBar('truth', truthP);
+    setBar('obs',   obsP);
+    setBar('est',   estP);
+    $('trueValue').textContent = (p * 100).toFixed(1) + '%';
+    const err = Math.abs(estP - p) * 100;
+    $('errValue').textContent  = err.toFixed(1) + '%';
+  }, 100);
+}
+
+function setBar(prefix, valYes) {
+  const yes = Math.round(valYes * 1000) / 10;
+  const no  = Math.round((1 - valYes) * 1000) / 10;
+  $(prefix + 'YesFill').style.width = yes + '%';
+  $(prefix + 'NoFill').style.width  = no  + '%';
+  $(prefix + 'YesPct').textContent  = yes.toFixed(1) + '%';
+  $(prefix + 'NoPct').textContent   = no.toFixed(1)  + '%';
+}
+
+// ── inicializar grid vacío ─────────────────────────────────────────────────
+reset();
+</script>
+</body>
+</html>
